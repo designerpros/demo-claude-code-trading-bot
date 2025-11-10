@@ -36,10 +36,11 @@ A sophisticated paper trading bot for cryptocurrency trading with technical anal
 - Exit fee: 1.0% of transaction value
 
 ### Data Collection
-- Collects 15-minute OHLCV data every 15 minutes
-- Aggregates to daily candles for analysis
-- Trades once per day based on daily candles
-- Tracks top 100 assets by volume and market cap
+- **Bootstrap**: Fetches 48 daily candles directly for fast initialization (~50 seconds)
+- **Ongoing**: Collects 15-minute OHLCV data every 15 minutes
+- **Aggregation**: Aggregates 15m to daily candles for strategy analysis
+- **Trading**: Executes trades once per day based on daily candles
+- **Tracking**: Monitors top 100 assets by volume and market cap
 
 ## Prerequisites
 
@@ -200,13 +201,23 @@ demo-claude-code-trading-bot/
 
 ## Trading Workflow
 
+### Initial Bootstrap (One-time)
+- Fetch top 100 assets by volume/market cap
+- Fetch 48 daily candles per asset (1 API call each)
+- Calculate technical indicators
+- **Total time: ~50 seconds for 100 assets**
+
+### Ongoing Operations
+
 1. **Data Collection** (Every 15 minutes)
    - Fetch 15m OHLCV data from multiple sources
    - Store in database with source tracking
+   - Builds granular historical database over time
 
 2. **Aggregation** (Every hour)
-   - Aggregate 15m candles into daily candles
-   - Calculate technical indicators (EMA, RSI, ATR)
+   - Aggregate new 15m candles into daily candles
+   - Recalculate technical indicators (EMA, RSI, ATR)
+   - Update daily candle database
 
 3. **Trading Cycle** (Once per day)
    - Update position prices

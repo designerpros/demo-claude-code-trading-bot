@@ -37,32 +37,37 @@ for symbol in self.tracked_assets:  # Bootstrap all tracked assets
 
 ---
 
-### 3. **Insufficient Data Limit for 48 Days (FIXED)** 🔴
-**File:** `src/main.py:169` and `src/data/collectors.py`
+### 3. **Inefficient Historical Data Collection (FIXED)** 🔴
+**File:** `src/main.py:169`
 
-**Issue:** Default limit of 1000 candles insufficient for 48 days of 15-minute data
-- Required: 48 days × 96 candles/day = **4,608 candles**
-- Default: 1,000 candles ≈ only 10 days of data
+**Issue:** Originally fetching 15-minute candles for historical bootstrap
+- Required: 48 days × 96 candles/day = **4,608 candles per asset**
+- Problem: 5+ API calls per asset, unnecessary aggregation, slow bootstrap
 
-**Fix:**
-1. Calculate required candles dynamically in `main.py`
-2. Pass correct limit to `fetch_ohlcv()`
-3. Implement pagination in Binance fetcher to handle > 1000 candle requests
+**Realization:** We only need daily candles for trading!
+- Bot trades once per day based on daily candles
+- Indicators (EMA, RSI, ATR) calculated on daily data
+- 15-minute granularity only needed for real-time updates
+
+**Fix:** Fetch daily candles directly for bootstrap
+- Bootstrap: 1 API call per asset (48 daily candles)
+- Ongoing: Collect 15m candles → aggregate to daily → build history over time
 
 ```python
-# main.py - Added calculation
-candles_per_day = 96  # 15-minute candles in a day
-required_candles = historical_days * candles_per_day  # 4,608 for 48 days
-ohlcv_data = self.collector.fetch_ohlcv(symbol, interval, since, limit=required_candles + 100)
+# Before - Inefficient
+ohlcv_data = self.collector.fetch_ohlcv(symbol, '15m', since, limit=4608)
+daily_candles = self.aggregator.aggregate_to_daily(ohlcv_data, symbol)
 
-# collectors.py - Added pagination for Binance
-if limit > max_per_request:
-    # Paginate through multiple requests
-    while remaining > 0:
-        batch = self.binance.fetch_ohlcv(pair, interval, current_since, fetch_limit)
-        all_ohlcv.extend(batch)
-        # ... pagination logic
+# After - Direct and efficient
+daily_ohlcv = self.collector.fetch_ohlcv(symbol, '1d', since, limit=48)
+# Use directly, no aggregation needed
 ```
+
+**Impact:**
+- 5x faster bootstrap (1 call vs 5 calls per asset)
+- 96x less data transferred (48 vs 4,608 candles)
+- No aggregation overhead
+- Faster database inserts
 
 ---
 
@@ -89,49 +94,48 @@ with open(config_path, 'r') as f:
 
 ## How 48-Day Historical Data Works
 
-### Initial Bootstrap Process
+### Initial Bootstrap Process (Simplified & Efficient!)
 
 1. **Asset Selection**
    - Fetches top 100 assets by volume/market cap from CoinGecko
    - Excludes stablecoins
    - Saves to database
 
-2. **Historical Data Collection (Per Asset)**
-   - Calculates required candles: `48 days × 96 candles/day = 4,608 candles`
-   - Fetches 15-minute OHLCV data from Binance with pagination:
-     - Request 1: Candles 1-1000
-     - Request 2: Candles 1001-2000
-     - Request 3: Candles 2001-3000
-     - Request 4: Candles 3001-4000
-     - Request 5: Candles 4001-4608
+2. **Historical Daily Candles (Per Asset)**
+   - Fetches **48 daily candles directly** from Binance
+   - Just 1 API call per asset (vs 5+ for 15m data)
    - Fallback to CoinGecko/CoinCap if Binance fails
-   - Saves all 15m candles to database
+   - Saves to `daily_candles` table immediately
+   - **No aggregation needed!**
 
-3. **Daily Candle Aggregation**
-   - Aggregates 15-minute candles into daily candles:
-     - Open: First 15m candle's open
-     - High: Maximum of all 15m highs
-     - Low: Minimum of all 15m lows
-     - Close: Last 15m candle's close
-     - Volume: Sum of all 15m volumes
-   - Results in ~48 daily candles per asset
-   - Saves to `daily_candles` table
-
-4. **Indicator Calculation**
+3. **Indicator Calculation**
    - Uses 48 daily candles to calculate:
-     - EMA(12): Requires 12 candles
+     - EMA(12): Requires 12 candles ✓
      - EMA(48): Requires 48 candles ✓
-     - RSI(14): Requires 14 candles
-     - ATR(10): Requires 10 candles
+     - RSI(14): Requires 14 candles ✓
+     - ATR(10): Requires 10 candles ✓
    - Saves to `indicators` table
+
+**Bootstrap Speed:**
+- 100 assets × 1 API call = ~100 calls total
+- With 0.5s rate limiting = **~50 seconds** (vs 5-10 minutes with 15m data)
+- Much lower API rate limit risk
 
 ### Ongoing Data Collection
 
-After bootstrap, the bot:
-- Collects 15-minute data every 15 minutes
-- Aggregates to daily candles every hour
-- Continuously builds historical depth
-- Never deletes historical data
+After bootstrap, the bot builds granular history:
+- **Every 15 minutes:** Collects 15-minute OHLCV candles
+  - Saves to `ohlcv_data` table
+  - Builds granular historical database over time
+- **Every hour:** Aggregates new 15m candles to daily
+  - Updates `daily_candles` table
+  - Recalculates indicators
+- **Never deletes data** - continuous accumulation
+
+This approach:
+- Fast bootstrap with daily candles (what we need for trading)
+- Builds detailed 15m history organically over time
+- Best of both worlds!
 
 ### Data Redundancy
 
@@ -157,17 +161,17 @@ Multi-source approach (in priority order):
 - Multi-source redundancy
 - Can add API keys to `.env` for higher limits
 
-### 2. First Bootstrap May Be Slow ⏱️
+### 2. Bootstrap Speed ⏱️
 
-**Issue:** Fetching 4,608 candles for 100 assets takes time
-- Per asset: ~5 Binance API calls + processing
-- Total: ~500 API calls for full bootstrap
-- Estimated time: 5-10 minutes for all 100 assets
+**Status:** MUCH FASTER with daily candle approach ✅
+- Per asset: 1 API call (48 daily candles)
+- Total: ~100 API calls for 100 assets
+- Estimated time: **~50 seconds** with 0.5s rate limiting
 
-**Mitigation:**
+**Note:** This is 6x faster than the original 15m approach!
 - Progress logging for each asset
 - Data saved incrementally (failures don't lose progress)
-- Can reduce `top_count` in config for faster testing
+- Can reduce `top_count` in config for even faster testing
 
 ### 3. Missing Volume Data from Some Sources 📉
 
@@ -310,17 +314,20 @@ This tests:
 ## Performance Notes
 
 ### Memory Usage
-- Expected: ~500MB for 100 assets with 48 days of 15m data
-- Database size: ~2-3GB after full bootstrap
+- Bootstrap: ~50MB for 100 assets with 48 daily candles
+- Runtime: ~200MB with ongoing 15m data collection
+- Database size after bootstrap: ~50MB (just daily candles + indicators)
+- Database size after 1 month: ~1-2GB (with accumulated 15m data)
 
 ### CPU Usage
-- Bootstrap: High (intensive data processing)
+- Bootstrap: Low (minimal processing with daily candles)
 - Runtime: Low (scheduled tasks only)
 - Peak during: Daily trading cycle + indicator calculations
 
 ### Network Usage
-- Bootstrap: ~100-200 API calls per asset
-- Runtime: ~1-2 API calls per asset per 15 minutes
+- Bootstrap: **1 API call per asset** (100 calls total for 100 assets)
+- Runtime: ~1-2 API calls per asset per 15 minutes (for 15m data collection)
+- Total bootstrap data: ~5KB per asset × 100 = 500KB (vs 480KB per asset with 15m = 48MB)
 
 ---
 

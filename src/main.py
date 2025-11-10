@@ -156,35 +156,35 @@ class TradingBot:
 
         # Fetch historical data
         historical_days = self.config['data']['historical_days']
-        interval = self.config['data']['candle_interval']
 
-        logger.info(f"Fetching {historical_days} days of {interval} data...")
-
-        # Calculate required number of candles for 15m interval
-        # 48 days * 24 hours * 4 candles per hour = 4,608 candles
-        candles_per_day = 96  # 15-minute candles in a day
-        required_candles = historical_days * candles_per_day
-
-        logger.info(f"Will fetch approximately {required_candles} candles per asset")
+        logger.info(f"Fetching {historical_days} days of historical DAILY candles...")
+        logger.info("Note: 15-minute candles will be collected in real-time going forward")
 
         for symbol in self.tracked_assets:
             try:
-                logger.info(f"Fetching data for {symbol}...")
+                logger.info(f"Fetching daily candles for {symbol}...")
 
-                # Fetch OHLCV data
+                # Fetch DAILY candles directly for bootstrap (much more efficient)
                 since = datetime.now() - timedelta(days=historical_days + 5)  # Extra buffer
-                ohlcv_data = self.collector.fetch_ohlcv(symbol, interval, since, limit=required_candles + 100)
+                daily_ohlcv = self.collector.fetch_ohlcv(symbol, '1d', since, limit=historical_days + 10)
 
-                if ohlcv_data:
-                    # Save to database
-                    self.storage.insert_ohlcv_data(ohlcv_data)
-
-                    # Aggregate to daily
-                    daily_candles = self.aggregator.aggregate_to_daily(ohlcv_data, symbol)
+                if daily_ohlcv:
+                    # Convert daily OHLCV to daily_candles format
+                    daily_candles = []
+                    for candle in daily_ohlcv:
+                        daily_candles.append({
+                            'date': candle['timestamp'].date(),
+                            'asset': symbol,
+                            'open': candle['open'],
+                            'high': candle['high'],
+                            'low': candle['low'],
+                            'close': candle['close'],
+                            'volume': candle['volume']
+                        })
 
                     if daily_candles:
                         self.storage.insert_daily_candles(daily_candles)
-                        logger.info(f"✅ {symbol}: {len(ohlcv_data)} 15m candles → {len(daily_candles)} daily candles")
+                        logger.info(f"✅ {symbol}: {len(daily_candles)} daily candles")
 
                         # Calculate indicators
                         indicators = self.indicators_calc.calculate_all_indicators(daily_candles, symbol)
