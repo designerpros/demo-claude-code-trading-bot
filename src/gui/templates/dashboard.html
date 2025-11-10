@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Altcoin Trading Bot Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .last-update {
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #666;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .positive {
+            color: #10b981;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-entry {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-exit {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+
+        .refresh-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #10b981;
+            border-radius: 50%;
+            margin-left: 10px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Altcoin Trading Bot Dashboard</h1>
+            <div class="subtitle">Paper Trading Mode - Real-time Monitoring</div>
+            <div class="last-update">
+                Last updated: <span id="lastUpdate">Loading...</span>
+                <span class="refresh-indicator"></span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">📊 Portfolio Summary</div>
+                <div id="portfolioSummary" class="loading">Loading...</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📈 Positions</div>
+                <div id="positionsSummary" class="loading">Loading...</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📉 Trading Statistics</div>
+                <div id="statisticsSummary" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-title">💼 Open Positions</div>
+            <div id="positionsTable" class="loading">Loading...</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🔄 Recent Trades</div>
+            <div id="tradesTable" class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        const REFRESH_INTERVAL = {{ refresh_interval }} * 1000; // Convert to milliseconds
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(value);
+        }
+
+        function formatPercentage(value) {
+            const num = parseFloat(value);
+            const sign = num >= 0 ? '+' : '';
+            return `${sign}${num.toFixed(2)}%`;
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleString();
+        }
+
+        async function fetchPortfolio() {
+            try {
+                const response = await fetch('/api/portfolio');
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    const html = `
+                        <div class="metric">
+                            <span class="metric-label">Total Value</span>
+                            <span class="metric-value">${formatCurrency(data.total_value)}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Cash</span>
+                            <span class="metric-value">${formatCurrency(data.cash)} (${data.cash_percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Positions Value</span>
+                            <span class="metric-value">${formatCurrency(data.positions_value)} (${data.positions_percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total Return</span>
+                            <span class="metric-value ${data.total_return >= 0 ? 'positive' : 'negative'}">
+                                ${formatCurrency(data.total_return)} (${formatPercentage(data.total_return_percentage)})
+                            </span>
+                        </div>
+                    `;
+                    document.getElementById('portfolioSummary').innerHTML = html;
+                } else {
+                    document.getElementById('portfolioSummary').innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('portfolioSummary').innerHTML = `<div class="error">Error loading portfolio data</div>`;
+            }
+        }
+
+        async function fetchPositionsSummary() {
+            try {
+                const response = await fetch('/api/positions');
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    const html = `
+                        <div class="metric">
+                            <span class="metric-label">Open Positions</span>
+                            <span class="metric-value">${data.count}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total Value</span>
+                            <span class="metric-value">${formatCurrency(data.total_value)}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Unrealized P&L</span>
+                            <span class="metric-value ${data.total_unrealized_pnl >= 0 ? 'positive' : 'negative'}">
+                                ${formatCurrency(data.total_unrealized_pnl)}
+                            </span>
+                        </div>
+                    `;
+                    document.getElementById('positionsSummary').innerHTML = html;
+                } else {
+                    document.getElementById('positionsSummary').innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('positionsSummary').innerHTML = `<div class="error">Error loading positions data</div>`;
+            }
+        }
+
+        async function fetchPositions() {
+            try {
+                const response = await fetch('/api/positions');
+                const result = await response.json();
+
+                if (result.success) {
+                    const positions = result.data.positions;
+
+                    if (positions.length === 0) {
+                        document.getElementById('positionsTable').innerHTML = '<p style="text-align: center; color: #999;">No open positions</p>';
+                        return;
+                    }
+
+                    let html = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Asset</th>
+                                    <th>Units</th>
+                                    <th>Entry Price</th>
+                                    <th>Current Price</th>
+                                    <th>Value</th>
+                                    <th>P&L</th>
+                                    <th>P&L %</th>
+                                    <th>Days Held</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    positions.forEach(pos => {
+                        const pnl = parseFloat(pos.unrealized_pnl);
+                        const pnlPct = parseFloat(pos.unrealized_pnl_pct);
+                        const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+
+                        html += `
+                            <tr>
+                                <td><strong>${pos.asset}</strong></td>
+                                <td>${pos.units}</td>
+                                <td>$${pos.entry_price}</td>
+                                <td>$${pos.current_price}</td>
+                                <td>$${pos.current_value}</td>
+                                <td class="${pnlClass}">$${pos.unrealized_pnl}</td>
+                                <td class="${pnlClass}">${formatPercentage(pnlPct)}</td>
+                                <td>${pos.days_held}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += '</tbody></table>';
+                    document.getElementById('positionsTable').innerHTML = html;
+                } else {
+                    document.getElementById('positionsTable').innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('positionsTable').innerHTML = `<div class="error">Error loading positions</div>`;
+            }
+        }
+
+        async function fetchTrades() {
+            try {
+                const response = await fetch('/api/trades');
+                const result = await response.json();
+
+                if (result.success) {
+                    const trades = result.data;
+
+                    if (trades.length === 0) {
+                        document.getElementById('tradesTable').innerHTML = '<p style="text-align: center; color: #999;">No trades yet</p>';
+                        return;
+                    }
+
+                    let html = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Asset</th>
+                                    <th>Time</th>
+                                    <th>Price</th>
+                                    <th>Units</th>
+                                    <th>Value</th>
+                                    <th>Fee</th>
+                                    <th>P&L</th>
+                                    <th>P&L %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    trades.forEach(trade => {
+                        const time = new Date(trade.timestamp).toLocaleString();
+                        const badgeClass = trade.type === 'ENTRY' ? 'badge-entry' : 'badge-exit';
+
+                        let pnlHtml = '-';
+                        let pnlPctHtml = '-';
+
+                        if (trade.type === 'EXIT') {
+                            const pnl = parseFloat(trade.profit_loss);
+                            const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+                            pnlHtml = `<span class="${pnlClass}">$${trade.profit_loss}</span>`;
+                            pnlPctHtml = `<span class="${pnlClass}">${formatPercentage(trade.profit_loss_pct)}</span>`;
+                        }
+
+                        html += `
+                            <tr>
+                                <td><span class="badge ${badgeClass}">${trade.type}</span></td>
+                                <td><strong>${trade.asset}</strong></td>
+                                <td>${time}</td>
+                                <td>$${trade.price}</td>
+                                <td>${trade.units}</td>
+                                <td>$${trade.value}</td>
+                                <td>$${trade.fee}</td>
+                                <td>${pnlHtml}</td>
+                                <td>${pnlPctHtml}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += '</tbody></table>';
+                    document.getElementById('tradesTable').innerHTML = html;
+                } else {
+                    document.getElementById('tradesTable').innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('tradesTable').innerHTML = `<div class="error">Error loading trades</div>`;
+            }
+        }
+
+        async function fetchStatistics() {
+            try {
+                const response = await fetch('/api/statistics');
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    const html = `
+                        <div class="metric">
+                            <span class="metric-label">Total Trades</span>
+                            <span class="metric-value">${data.total_trades}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Closed Trades</span>
+                            <span class="metric-value">${data.exits} (W: ${data.winning_trades}, L: ${data.losing_trades})</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Win Rate</span>
+                            <span class="metric-value">${data.win_rate}%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total P&L</span>
+                            <span class="metric-value ${parseFloat(data.total_pnl) >= 0 ? 'positive' : 'negative'}">
+                                $${data.total_pnl}
+                            </span>
+                        </div>
+                    `;
+                    document.getElementById('statisticsSummary').innerHTML = html;
+                } else {
+                    document.getElementById('statisticsSummary').innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('statisticsSummary').innerHTML = `<div class="error">Error loading statistics</div>`;
+            }
+        }
+
+        async function refreshAll() {
+            await Promise.all([
+                fetchPortfolio(),
+                fetchPositionsSummary(),
+                fetchPositions(),
+                fetchTrades(),
+                fetchStatistics()
+            ]);
+            updateLastUpdate();
+        }
+
+        // Initial load
+        refreshAll();
+
+        // Auto-refresh
+        setInterval(refreshAll, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>

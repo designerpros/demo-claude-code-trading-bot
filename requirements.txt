@@ -1,0 +1,38 @@
+# Core dependencies
+pandas>=2.0.0
+numpy>=1.24.0
+python-dateutil>=2.8.2
+
+# Database
+psycopg2-binary>=2.9.5
+SQLAlchemy>=2.0.0
+
+# API clients
+requests>=2.31.0
+ccxt>=4.0.0
+pycoingecko>=3.1.0
+
+# Technical analysis
+pandas-ta>=0.3.14b0
+ta-lib>=0.4.28
+
+# Scheduling
+APScheduler>=3.10.0
+
+# Web framework
+Flask>=3.0.0
+Flask-CORS>=4.0.0
+
+# Configuration
+PyYAML>=6.0
+
+# Logging
+colorlog>=6.7.0
+
+# Utilities
+python-dotenv>=1.0.0
+pytz>=2023.3
+
+# Testing (optional)
+pytest>=7.4.0
+pytest-cov>=4.1.0

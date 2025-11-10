@@ -1,0 +1,73 @@
+# Trading Bot Configuration
+
+# Database Configuration
+database:
+  host: localhost
+  port: 5432
+  name: trading_bot
+  user: trading_bot_user
+  password: change_me_in_production
+
+# Portfolio Configuration
+portfolio:
+  initial_balance: 10000.0
+  currency: USDT
+
+# Trading Configuration
+trading:
+  mode: paper  # paper or live
+  position_size_percentage: 5.0  # 5% of available liquidity
+  entry_fee_percentage: 0.5  # 0.5% entry fee
+  exit_fee_percentage: 1.0  # 1% exit fee
+
+# Asset Selection
+assets:
+  top_count: 100  # Top 100 assets
+  volume_priority: true  # Use volume as priority, market cap as tiebreaker
+  exclude_stablecoins: true
+  tracking_threshold: 500  # Stop tracking if below rank 500 and no position
+  refresh_interval_hours: 24  # Refresh asset list every 24 hours
+
+# Data Collection
+data:
+  collection_interval_minutes: 15  # Collect data every 15 minutes
+  candle_interval: 15m
+  historical_days: 48  # Bootstrap with 48 days
+  sources:
+    - coingecko
+    - binance
+    - coincap
+
+# Technical Indicators
+indicators:
+  ema_fast: 12
+  ema_slow: 48
+  rsi_period: 14
+  rsi_oversold: 30
+  atr_period: 10
+  atr_multiplier: 0.1
+  crossover_lookback: 5  # Check crossover within last 5 candles
+
+# Exit Conditions
+exits:
+  stop_loss_percentage: 25.0  # 25% stop loss
+  trailing_stop_percentage: 30.0  # 30% trailing stop
+
+# Trading Schedule
+schedule:
+  trading_hour: 0  # Trade at midnight UTC (after daily candle closes)
+  trading_minute: 5
+
+# Reporting
+reporting:
+  console_logging: true
+  file_logging: true
+  log_file: logs/trading_bot.log
+  log_level: INFO
+
+# GUI Configuration
+gui:
+  host: 0.0.0.0
+  port: 5000
+  refresh_interval_seconds: 900  # 15 minutes
+  debug: false
