@@ -19,8 +19,11 @@ from strategy.position_manager import PositionManager
 app = Flask(__name__)
 CORS(app)
 
-# Load configuration
-with open('config/config.yaml', 'r') as f:
+# Load configuration (path relative to project root)
+project_root = Path(__file__).parent.parent.parent
+config_path = project_root / 'config' / 'config.yaml'
+
+with open(config_path, 'r') as f:
     config = yaml.safe_load(f)
 
 # Initialize components

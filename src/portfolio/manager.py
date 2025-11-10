@@ -2,7 +2,7 @@
 Portfolio manager for tracking cash, positions, and overall portfolio value.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 from decimal import Decimal
 import logging
@@ -72,7 +72,7 @@ class PortfolioManager:
         logger.debug(f"Removed ${amount:.2f} cash, new balance: ${float(self.cash):.2f}")
         return True
 
-    def calculate_position_size(self, price: float, size_percentage: float = 5.0) -> tuple[float, float]:
+    def calculate_position_size(self, price: float, size_percentage: float = 5.0) -> Tuple[float, float]:
         """
         Calculate position size based on available liquidity.
 

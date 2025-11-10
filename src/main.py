@@ -160,13 +160,20 @@ class TradingBot:
 
         logger.info(f"Fetching {historical_days} days of {interval} data...")
 
-        for symbol in self.tracked_assets[:10]:  # Start with first 10 for faster bootstrap
+        # Calculate required number of candles for 15m interval
+        # 48 days * 24 hours * 4 candles per hour = 4,608 candles
+        candles_per_day = 96  # 15-minute candles in a day
+        required_candles = historical_days * candles_per_day
+
+        logger.info(f"Will fetch approximately {required_candles} candles per asset")
+
+        for symbol in self.tracked_assets:
             try:
                 logger.info(f"Fetching data for {symbol}...")
 
                 # Fetch OHLCV data
                 since = datetime.now() - timedelta(days=historical_days + 5)  # Extra buffer
-                ohlcv_data = self.collector.fetch_ohlcv(symbol, interval, since)
+                ohlcv_data = self.collector.fetch_ohlcv(symbol, interval, since, limit=required_candles + 100)
 
                 if ohlcv_data:
                     # Save to database

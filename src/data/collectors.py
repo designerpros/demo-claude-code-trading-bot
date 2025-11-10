@@ -230,7 +230,7 @@ class DataCollector:
 
     def _fetch_ohlcv_binance(self, symbol: str, interval: str,
                              since: Optional[datetime], limit: int) -> List[Dict[str, Any]]:
-        """Fetch OHLCV from Binance."""
+        """Fetch OHLCV from Binance with pagination support for large requests."""
         # Convert interval format
         interval_map = {
             '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
@@ -242,8 +242,42 @@ class DataCollector:
         pair = f"{symbol}/USDT"
         since_ms = int(since.timestamp() * 1000) if since else None
 
-        # Fetch data
-        ohlcv = self.binance.fetch_ohlcv(pair, binance_interval, since_ms, limit)
+        # Binance has a max limit of 1000 candles per request
+        # For larger requests, we need to paginate
+        max_per_request = 1000
+        all_ohlcv = []
+
+        if limit > max_per_request:
+            # Paginate through multiple requests
+            current_since = since_ms
+            remaining = limit
+
+            while remaining > 0:
+                fetch_limit = min(remaining, max_per_request)
+                batch = self.binance.fetch_ohlcv(pair, binance_interval, current_since, fetch_limit)
+
+                if not batch:
+                    break
+
+                all_ohlcv.extend(batch)
+                remaining -= len(batch)
+
+                # Update since to last candle's timestamp + 1ms
+                if len(batch) > 0:
+                    current_since = batch[-1][0] + 1
+                else:
+                    break
+
+                # If we got fewer candles than requested, we've reached the end
+                if len(batch) < fetch_limit:
+                    break
+
+                time.sleep(0.1)  # Rate limiting between requests
+
+            ohlcv = all_ohlcv
+        else:
+            # Single request
+            ohlcv = self.binance.fetch_ohlcv(pair, binance_interval, since_ms, limit)
 
         # Convert to our format
         data = []
