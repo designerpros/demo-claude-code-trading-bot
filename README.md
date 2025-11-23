@@ -19,10 +19,8 @@ A sophisticated paper trading bot for cryptocurrency trading with technical anal
 
 **Entry Conditions** (ALL must be met):
 1. No existing position in the asset
-2. Fast EMA (12) crossed above Slow EMA (48) within last 5 candles
-3. ONE of:
-   - RSI(14) < 30 (oversold)
-   - Price change > 0.1 × ATR(10)
+2. Fast EMA (12) crossed above Slow EMA (48) within last 5 candles (momentum confirmation)
+3. Significant price movement: |Close today - Close yesterday| > 0.2 × ATR(10) (signal strength validation)
 
 **Exit Conditions** (ANY triggers exit):
 1. 25% stop loss from entry price

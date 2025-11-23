@@ -46,9 +46,8 @@ class SignalGenerator:
         Entry conditions (ALL must be met):
         1. No position exists in that asset
         2. Fast EMA (12) crossed above Slow EMA (48) within last 5 candles
-        3. ONE of:
-           a. RSI < 30 (oversold)
-           b. abs(close_today - close_yesterday) > 0.1 * ATR(10)
+        3. Significant price movement: |Close_today - Close_yesterday| > 0.2 * ATR(10)
+           (Validates signal strength and filters noise)
 
         Args:
             indicators_by_asset: Dictionary mapping asset symbols to their indicator history
@@ -73,22 +72,21 @@ class SignalGenerator:
             # Get latest indicators
             latest = indicators[-1]
 
-            # Condition 2: EMA crossover within last N candles
+            # Condition 2: EMA crossover within last N candles (Momentum confirmation)
             if not self._check_ema_crossover_in_window(indicators, self.crossover_lookback):
                 logger.debug(f"{asset}: No EMA crossover in last {self.crossover_lookback} candles")
                 continue
 
-            # Condition 3: RSI oversold OR ATR breakout
-            rsi_oversold = latest.get('rsi_14', 100) < self.rsi_oversold
+            # Condition 3: ATR breakout (Signal strength validation - REQUIRED)
             atr_breakout = latest.get('atr_breakout', False)
 
-            if not (rsi_oversold or atr_breakout):
-                logger.debug(f"{asset}: Neither RSI oversold nor ATR breakout condition met")
+            if not atr_breakout:
+                logger.debug(f"{asset}: ATR breakout condition not met - weak signal")
                 continue
 
             # All conditions met!
             entry_signals.append(asset)
-            logger.info(f"{asset}: ENTRY SIGNAL - EMA crossover: Yes, RSI oversold: {rsi_oversold}, ATR breakout: {atr_breakout}")
+            logger.info(f"{asset}: ENTRY SIGNAL - EMA crossover: Yes, ATR breakout: {atr_breakout}")
 
         return entry_signals
 
@@ -236,7 +234,6 @@ class SignalGenerator:
             'conditions': {
                 'no_position': not has_position,
                 'ema_crossover': False,
-                'rsi_oversold': False,
                 'atr_breakout': False
             },
             'details': {}
@@ -252,29 +249,23 @@ class SignalGenerator:
 
         latest = indicators[-1]
 
-        # Check EMA crossover
+        # Check EMA crossover (Momentum confirmation)
         evaluation['conditions']['ema_crossover'] = self._check_ema_crossover_in_window(
             indicators, self.crossover_lookback
         )
 
-        # Check RSI oversold
-        rsi = latest.get('rsi_14')
-        if rsi is not None:
-            evaluation['conditions']['rsi_oversold'] = rsi < self.rsi_oversold
-            evaluation['details']['rsi'] = rsi
-
-        # Check ATR breakout
+        # Check ATR breakout (Signal strength validation - REQUIRED)
         evaluation['conditions']['atr_breakout'] = latest.get('atr_breakout', False)
         if latest.get('atr_10'):
             evaluation['details']['atr'] = latest['atr_10']
         if latest.get('price_change'):
             evaluation['details']['price_change'] = latest['price_change']
 
-        # Determine overall signal
+        # Determine overall signal - BOTH conditions required
         ema_ok = evaluation['conditions']['ema_crossover']
-        momentum_ok = evaluation['conditions']['rsi_oversold'] or evaluation['conditions']['atr_breakout']
+        atr_ok = evaluation['conditions']['atr_breakout']
 
-        evaluation['signal'] = ema_ok and momentum_ok
+        evaluation['signal'] = ema_ok and atr_ok
 
         return evaluation
 

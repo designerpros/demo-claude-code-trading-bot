@@ -43,9 +43,9 @@ indicators:
   ema_fast: 12
   ema_slow: 48
   rsi_period: 14
-  rsi_oversold: 30
+  rsi_oversold: 30  # Not used in entry logic, kept for potential future use
   atr_period: 10
-  atr_multiplier: 0.1
+  atr_multiplier: 0.2  # Increased from 0.1 for stronger signal validation
   crossover_lookback: 5  # Check crossover within last 5 candles
 
 # Exit Conditions
