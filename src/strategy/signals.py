@@ -136,7 +136,8 @@ class SignalGenerator:
         Exit conditions (ANY triggers exit):
         1. 25% stop loss from entry
         2. 30% trailing stop from highest value
-        3. Slow EMA (48) crosses above Fast EMA (12) from below (bearish reversal)
+        3. Bearish momentum reversal: Slow EMA (48) crosses above Fast EMA (12) within last 5 days
+           AND significant price movement |close delta| > 0.2 × ATR(10)
 
         Args:
             positions: List of open position dictionaries
@@ -175,43 +176,53 @@ class SignalGenerator:
                     logger.info(f"{asset}: EXIT SIGNAL - {exit_signals[asset]}")
                     continue
 
-            # Exit condition 3: Bearish EMA crossover (slow crosses above fast)
+            # Exit condition 3: Bearish momentum reversal (crossover + ATR confirmation)
             if asset in indicators_by_asset:
                 indicators = indicators_by_asset[asset]
-                if self._check_bearish_crossover(indicators):
-                    exit_signals[asset] = "Bearish EMA crossover: Slow EMA crossed above Fast EMA"
+                if self._check_bearish_crossover_with_strength(indicators):
+                    exit_signals[asset] = "Bearish momentum reversal: Slow EMA crossed above Fast EMA with strong movement"
                     logger.info(f"{asset}: EXIT SIGNAL - {exit_signals[asset]}")
                     continue
 
         return exit_signals
 
-    def _check_bearish_crossover(self, indicators: List[Dict[str, Any]]) -> bool:
+    def _check_bearish_crossover_with_strength(self, indicators: List[Dict[str, Any]]) -> bool:
         """
-        Check if slow EMA crossed above fast EMA (bearish signal).
+        Check if slow EMA crossed above fast EMA with ATR-confirmed strength.
+        Inverse of entry logic - requires both crossover AND significant movement.
 
         Args:
             indicators: List of indicator dictionaries (sorted by date)
 
         Returns:
-            True if bearish crossover detected in latest candle
+            True if bearish crossover with strength detected in last 5 candles
         """
-        if len(indicators) < 2:
+        if len(indicators) < self.crossover_lookback + 1:
             return False
 
-        # Check the latest two candles
-        prev = indicators[-2]
-        curr = indicators[-1]
+        # Check the last N candles for bearish crossover
+        recent_indicators = indicators[-self.crossover_lookback - 1:]
 
-        prev_ema_12 = prev.get('ema_12')
-        prev_ema_48 = prev.get('ema_48')
-        curr_ema_12 = curr.get('ema_12')
-        curr_ema_48 = curr.get('ema_48')
+        for i in range(1, len(recent_indicators)):
+            prev = recent_indicators[i - 1]
+            curr = recent_indicators[i]
 
-        if not all([prev_ema_12, prev_ema_48, curr_ema_12, curr_ema_48]):
-            return False
+            prev_ema_12 = prev.get('ema_12')
+            prev_ema_48 = prev.get('ema_48')
+            curr_ema_12 = curr.get('ema_12')
+            curr_ema_48 = curr.get('ema_48')
 
-        # Bearish crossover: fast was above slow, now fast is below slow
-        return prev_ema_12 > prev_ema_48 and curr_ema_12 < curr_ema_48
+            if not all([prev_ema_12, prev_ema_48, curr_ema_12, curr_ema_48]):
+                continue
+
+            # Bearish crossover: fast was above slow, now fast is below slow
+            if prev_ema_12 > prev_ema_48 and curr_ema_12 < curr_ema_48:
+                # Check for ATR breakout confirmation (strength validation)
+                atr_breakout = curr.get('atr_breakout', False)
+                if atr_breakout:
+                    return True
+
+        return False
 
     # ==================== Signal Evaluation ====================
 
@@ -311,8 +322,8 @@ class SignalGenerator:
             evaluation['details']['loss_from_peak'] = loss_from_peak
             evaluation['conditions']['trailing_stop'] = loss_from_peak >= self.trailing_stop_pct
 
-        # Check bearish crossover
-        evaluation['conditions']['bearish_crossover'] = self._check_bearish_crossover(indicators)
+        # Check bearish momentum reversal (crossover + ATR confirmation)
+        evaluation['conditions']['bearish_crossover'] = self._check_bearish_crossover_with_strength(indicators)
 
         # Determine overall signal and reason
         if evaluation['conditions']['stop_loss']:
@@ -323,6 +334,6 @@ class SignalGenerator:
             evaluation['reason'] = f"Trailing stop triggered: {loss_from_peak:.2f}% from peak"
         elif evaluation['conditions']['bearish_crossover']:
             evaluation['signal'] = True
-            evaluation['reason'] = "Bearish EMA crossover"
+            evaluation['reason'] = "Bearish momentum reversal"
 
         return evaluation

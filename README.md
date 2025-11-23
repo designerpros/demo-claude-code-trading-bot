@@ -25,7 +25,7 @@ A sophisticated paper trading bot for cryptocurrency trading with technical anal
 **Exit Conditions** (ANY triggers exit):
 1. 25% stop loss from entry price
 2. 30% trailing stop from highest value
-3. Slow EMA (48) crosses above Fast EMA (12) (bearish reversal)
+3. Bearish momentum reversal: Slow EMA (48) crosses above Fast EMA (12) within last 5 days AND |close delta| > 0.2 × ATR(10)
 
 ### Position Sizing
 - Each position: 5% of available liquidity
