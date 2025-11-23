@@ -16,7 +16,7 @@ portfolio:
 # Trading Configuration
 trading:
   mode: paper  # paper or live
-  position_size_percentage: 5.0  # 5% of available liquidity
+  position_size_percentage: 2.5  # X% of available liquidity (cash only, not active positions)
   entry_fee_percentage: 0.5  # 0.5% entry fee
   exit_fee_percentage: 1.0  # 1% exit fee
 

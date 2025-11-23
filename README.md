@@ -28,7 +28,10 @@ A sophisticated paper trading bot for cryptocurrency trading with technical anal
 3. Bearish momentum reversal: Slow EMA (48) crosses above Fast EMA (12) within last 5 days AND |close delta| > 0.2 × ATR(10)
 
 ### Position Sizing
-- Each position: 5% of available liquidity
+- Each position: 2.5% of available liquidity (configurable)
+- **Liquidity** = Cash only (excludes active positions)
+- Active positions contribute to portfolio value, not liquidity
+- Exits release cash back to liquidity pool
 - No pyramiding or partial exits
 - Entry fee: 0.5% of transaction value
 - Exit fee: 1.0% of transaction value
