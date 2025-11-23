@@ -78,6 +78,11 @@ class PaperTrader:
         Returns:
             Trade ID if successful, None otherwise
         """
+        # Validate price
+        if not isinstance(price, (int, float)) or price <= 0:
+            logger.error(f"{asset}: Invalid entry price: {price}")
+            return None
+
         # Calculate position size
         units, position_value = self.portfolio.calculate_position_size(price, self.position_size_pct)
 
@@ -180,6 +185,11 @@ class PaperTrader:
         Returns:
             Tuple of (entry_trade_id, exit_trade_id) if successful
         """
+        # Validate price
+        if not isinstance(price, (int, float)) or price <= 0:
+            logger.error(f"{asset}: Invalid exit price: {price}")
+            return (None, None)
+
         # Get position
         position = self.positions.get_position(asset)
 

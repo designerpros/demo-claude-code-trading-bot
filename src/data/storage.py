@@ -306,12 +306,15 @@ class DatabaseStorage:
     def get_all_trades(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Get all trades, optionally limited."""
         query = "SELECT * FROM trades ORDER BY timestamp DESC"
+        params = ()
+
         if limit:
-            query += f" LIMIT {limit}"
+            query += " LIMIT %s"
+            params = (limit,)
 
         with self.get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query)
+                cur.execute(query, params)
                 return [dict(row) for row in cur.fetchall()]
 
     # ==================== Position Operations ====================

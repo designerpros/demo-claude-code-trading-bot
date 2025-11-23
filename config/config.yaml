@@ -6,7 +6,7 @@ database:
   port: 5432
   name: trading_bot
   user: trading_bot_user
-  password: change_me_in_production
+  password: CHANGE_THIS_PASSWORD_BEFORE_RUNNING  # ⚠️ SET A STRONG PASSWORD
 
 # Portfolio Configuration
 portfolio:
@@ -67,7 +67,7 @@ reporting:
 
 # GUI Configuration
 gui:
-  host: 0.0.0.0
+  host: 127.0.0.1  # Localhost only for security. Change to 0.0.0.0 only if adding authentication
   port: 5000
   refresh_interval_seconds: 900  # 15 minutes
   debug: false
